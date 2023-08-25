@@ -1,3 +1,21 @@
+
+#Load necessary package
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(corrplot)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(ggridges)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(plotly)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(knitr)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(fmsb)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(vcd)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(xgboost)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(e1071)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(class)) install.packages("caret", repos = "http://cran.us.r-project.org")
+
+
+
+
 library(tidyverse)
 library(caret)
 
