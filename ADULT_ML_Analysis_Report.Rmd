@@ -1,0 +1,530 @@
+---
+output:
+  pdf_document:
+    toc: false  # Set this to false to suppress the default ToC
+    latex_engine: xelatex
+    keep_tex: true
+header-includes:
+  - "\\usepackage{titling}"
+  - "\\pretitle{\\begin{center}\\LARGE}"
+  - "\\posttitle{\\end{center}\\vfill}"
+  - "\\preauthor{\\begin{center}\\large}"
+  - "\\postauthor{\\end{center}\\vfill}"
+  - "\\predate{\\begin{center}\\large}"
+  - "\\postdate{\\end{center}\\vfill\\newpage}"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\title{Harvard Data Science Final Project: Predicting individual income}
+\author{Maxandre Hebert}
+\date{2023-08-25}
+\maketitle
+
+\tableofcontents
+\newpage
+
+
+# Introduction
+In the world of data, stories emerge from numbers. With the rise of technology, our ability to dive deep into datasets and glean meaningful insights is a skill that is increasingly in demand. My journey in this paper begins with a dataset that many might view as just numbers and categories - the 1994 Adult Census Income data, generously shared by the University of California, Irvine.
+
+Here is the link :https://www.kaggle.com/datasets/uciml/adult-census-income.
+
+## Dataset description
+This dataset, a product of meticulous collection by Ronny Kohavi and Barry Becker, paints a picture of an individual's economic standing based on diverse personal and professional parameters. It's a tableau of life in numbers. Overall the dataset contain
+
+## Goal of the project
+The goal of this project is straightforward: to understand the tale these numbers tell and to see if, with the right tools, I can predict whether an individual's income surpasses $50,000 annually.
+
+In this study, I have choosen 5 models that will help me predicting the outcome.
+
+1- Logistic regression : Think of it as trying to predict the odds of something happening (like earning more than $50k). It's good for our project because it gives clear probabilities and is straightforward to understand.
+
+2- Random Forest : It's like gathering opinions from a crowd of experts (trees) and trusting the majority. Perfect for our project because it handles lots of data well and can manage various types of variables.
+
+3- XGboost : Similar to Random Forest but with a twist: it corrects its previous mistakes in each step. It's great for our project as it's known for delivering high performance and accuracy.
+
+4- support vector machine : Imagine drawing the best boundary line that separates two groups (like income brackets) as widely as possible. It's a good fit because it captures the nuances in our data, especially when the boundary isn't straightforward.
+
+5- K-Nearest Neighbors : Think of it as asking your closest neighbors for advice and following the most common suggestion. Useful for our project because it directly considers the surrounding data points to make a decision.
+
+## Steps that were performed
+1-Download the data.
+2-Clean the data NA and ?
+3- Transform character data into factor for machine learning.
+4- Data visualization of categorical and numerical variable.
+5- Process five different machine learning model.
+6- Presenting the result.
+7- Conclusion of the result.
+
+# Methodology/Analysis
+
+In this section we gonna first import the data then clean the data then do the exploratory work.
+
+## Importing the data
+
+Now First let's import the data. To make the job easy I have it ready on my github on csv.
+
+```{r}
+#Load necessary package
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(corrplot)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(ggridges)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(plotly)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(knitr)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(fmsb)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(vcd)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(xgboost)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(e1071)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(class)) install.packages("caret", repos = "http://cran.us.r-project.org")
+
+
+library(tidyverse)
+library(caret)
+library(corrplot)
+library(ggridges)
+library(plotly)
+library(knitr)
+library(fmsb)
+library(vcd)
+library(randomForest)
+library(xgboost)
+library(e1071)
+library(class)
+```
+
+
+```{r}
+#Download the csv file
+
+original_data <- read_csv("https://raw.githubusercontent.com/01110001/Harvard-data-science-final/main/ADULT_DATASET.csv")
+
+str(original_data)
+
+```
+
+We can see that we have that the dataframe contain 32561 rows and 15 variables (column).
+
+The variable we want to predict is the income variable.
+
+
+## Data Cleaning
+
+Now we will see if the data contain missing value.
+
+```{r}
+sum(is.na(original_data))
+```
+
+The dataframe contain no NA,but it contain some missing data representing as '?'.
+
+Let's remove them.
+
+```{r}
+#removing the ? from the data set.
+clean_dataset <- filter(original_data, 
+                       !workclass == "?", 
+                       !occupation == "?", 
+                       !native.country == "?")
+
+str(clean_dataset)
+
+```
+
+Much cleaner now !
+
+## Data type
+```{r}
+  str(clean_dataset)
+```
+
+We can see that our categorical variable are not considered as factor. Let's transform them into factor which is really important for machine learning.
+
+For the purpose of this project we need to transform to character data into factor. This makes it easier for machine learning algorithms to recognize patterns, compare and differentiate between different categories, and make predictions.
+
+```{r}
+# Convert character columns to factors using a for loop
+for(col in names(clean_dataset)) {
+  if(is.character(clean_dataset[[col]])) {
+    clean_dataset[[col]] <- factor(clean_dataset[[col]])
+  }
+}
+str(clean_dataset)
+
+```
+
+
+Ok now our data is really clean.
+
+## Splitting the data
+
+We can now proceed to split the data into a training and test set.
+
+```{r}
+#splitting the data
+set.seed(123)
+test_index <- createDataPartition(y = clean_dataset$income, times = 1, p = 0.2, list = FALSE)
+trainning_set <- clean_dataset[-test_index,]
+validation_set <- clean_dataset[test_index,]
+
+```
+
+## Data Exploration
+### Descriptive statistic
+
+Now it is time for data exploration my favorite part. With each variable we examine and each visualization we create, we uncover hidden patterns and relationships within the data. 
+
+```{r}
+summary(trainning_set)
+
+```
+
+Interesting we can see that most of our data set contain people with a revenue of less than 50k.
+
+This is a summary statistic of the data set.
+
+We can see that most person in the data set did earn less than 50k in 1994.
+
+Next.
+
+
+### Data Visualization
+
+In this part we are gonna go more visual.
+
+#### Distribution plot
+
+```{r echo=FALSE, fig.align="center"}
+#histogram of age
+ggplot(trainning_set, aes(x=age)) + geom_histogram(binwidth=5, fill="blue", color="black") +
+  labs(title="Distribution of Ages", x="Age", y="Frequency")
+
+```
+
+Here we see the distribution of the age of the dataset. We can see that most people are in the range of 25-45 years.
+
+
+```{r echo=FALSE}
+#Bar Plot of Work Class
+ggplot(trainning_set, aes(x=workclass)) + geom_bar(fill="green") + 
+  labs(title="Count by Work Class", x="Work Class", y="Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Here we see that most people work in the private sector.
+
+
+```{r echo=FALSE}
+#Boxplot of Hours per Week by Income
+ggplot(trainning_set, aes(x=income, y=hours.per.week)) + geom_boxplot() +
+  labs(title="Hours per Week by Income Level", x="Income", y="Hours per Week")
+```
+This boxplot show us that people who make more than 50k im annual revenu work more hour on average.
+
+```{r echo=FALSE}
+#Bar Plot of Education Levels
+ggplot(trainning_set, aes(x=education)) + geom_bar(fill="orange") + 
+  labs(title="Count by Education Level", x="Education Level", y="Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+We can see here what is the education level of the dataset. Most repondant are high school diploma, then bachelor then some college.Very few have a doctorate which is normal.
+
+
+```{r echo=FALSE}
+#Density Plot of Ages by Income
+ggplot(trainning_set, aes(x=age, fill=income)) + geom_density(alpha=0.5) +
+  labs(title="Age Distribution by Income", x="Age", y="Density")
+```
+
+This density plot is really interesting. We see that the peak of people earning less than 50k per year is around 25 years old. Thus, the form of the curve for people earning more than 50k a year have 2 peaks, around 35 years old for the first peak and 50 years old for the second peak.
+
+```{r echo=FALSE}
+#Count of Individuals by Marital Status and Income
+ggplot(trainning_set, aes(x=marital.status, fill=income)) +
+  geom_bar(position="dodge") +
+  labs(title="Count by Marital Status & Income", x="Marital Status", y="Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis text for better readability
+        legend.title = element_blank())  # Remove the legend title
+```
+Not surprising the people who are divorced earn less than 50k per year. Very few earn more than 50.Most people who were never married don't earn more than 50k which I don't really know why, what could explain this ?
+
+
+```{r echo=FALSE}
+#Facet Grid: To visualize the distribution of a variable across multiple facets.
+ggplot(trainning_set, aes(x=age)) +
+  geom_histogram(binwidth=5, fill="blue", alpha=0.7) +
+  labs(title="Distribution of Age by Income and Sex", x="Age", y="Count") +
+  facet_grid(sex ~ income)
+```
+There is more men by a lot earning more than 50k then there is woman earning more than 50k. Also we you look on the left both woman and men earning less than 50k have a dataset right skewed.
+
+
+
+
+```{r echo=FALSE}
+#Workclass Distribution by Income
+ggplot(trainning_set, aes(x=workclass, fill=income)) + 
+  geom_bar(position="dodge") +
+  labs(title="Count by Workclass & Income", x="Workclass", y="Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.title = element_blank())
+```
+People who are self employed earn more than 50k. People who earn more than 50k in the private sector are much rarer.
+
+
+
+```{r echo=FALSE}
+#Education Level Counts
+ggplot(trainning_set, aes(x=education, fill=income)) +
+  geom_bar(position="dodge") +
+  labs(title="Count by Education Level & Income", x="Education Level", y="Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.title = element_blank())
+```
+
+It is more frequent to see people who have a master earning more than 50k per year.
+It is also frequent to see people earning less than 50k who have no degree.
+
+```{r echo=FALSE}
+#Income Distribution by Gender
+ggplot(trainning_set, aes(x=sex, fill=income)) + 
+  geom_bar(position="fill") +
+  labs(title="Income Distribution by Gender", x="Gender", y="Proportion") +
+  theme_minimal()
+```
+
+Here we see inequality of gender, female earn less than men in 1994, sadly.
+
+```{r echo=FALSE}
+#Occupation Distribution by Income
+ggplot(trainning_set, aes(x=occupation, fill=income)) + 
+  geom_bar(position="dodge") +
+  labs(title="Count by Occupation & Income", x="Occupation", y="Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.title = element_blank())
+```
+No surprise executive and professor earn good salary. 
+
+
+
+```{r echo=FALSE}
+#Correlation Heatmap
+cor_matrix <- cor(trainning_set[sapply(trainning_set, is.numeric)])
+corrplot(cor_matrix, method="circle")
+```
+
+Some of the variable have correlation but no strong correlation were found.
+
+
+```{r echo=FALSE}
+#Ridgeline Plot of Age Distribution by Education
+ggplot(trainning_set, aes(x = age, y = education, fill = income)) + 
+  geom_density_ridges() +
+  labs(title="Ridgeline Plot of Age Distribution by Education Level", x="Age") +
+  theme_ridges()
+```
+
+People who earn more than 50k and are aged less than 25 years old are really really rare.
+
+
+
+```{r echo=FALSE}
+#Boxplot of Hours per Week by Occupation
+ggplot(trainning_set, aes(x=occupation, y=hours.per.week, fill=occupation)) + 
+  geom_boxplot() +
+  labs(title="Hours per Week by Occupation", x="Occupation", y="Hours per Week") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="none")
+```
+
+Farmer are the one who work the most.
+
+```{r echo=FALSE}
+#Ridgeline Plot of Age Distribution by Education
+ggplot(trainning_set, aes(x = age, y = occupation, fill = income)) + 
+  geom_density_ridges() +
+  labs(title="Ridgeline Plot of Age Distribution by Occupation", x="Age") +
+  theme_ridges()
+```
+
+People who protect our country are the one who earn the less. Crazy ! Doesn't make sense.
+
+```{r echo=FALSE}
+#Facet by Education
+ggplot(trainning_set, aes(x=hours.per.week, fill=income)) + 
+  geom_histogram(binwidth=2, position="identity", alpha=0.5) +
+  facet_wrap(~education, scales="free") +
+  labs(title="Hours per Week Distribution by Education and Income", x="Hours per Week", y="Count") +
+  theme_minimal()
+```
+
+
+
+
+
+```{r echo=FALSE}
+#Table of Mean Hours per Week by Occupation
+occupation_table <- aggregate(trainning_set$hours.per.week ~ trainning_set$occupation, trainning_set, mean)
+names(occupation_table) <- c("Occupation", "Mean Hours per Week")
+kable(occupation_table, format="markdown", align="l", col.names=c("Occupation", "Mean Hours per Week"))
+
+
+```
+
+```{r eval=FALSE, include=FALSE}
+#Radar/Spider Chart for Numeric Data
+#data_spider <- trainning_set[, sapply(trainning_set, is.numeric)]
+#data_spider$income <- trainning_set$income
+#data_spider <- aggregate(.~income, data_spider, mean)
+#data_spider <- rbind(max(data_spider[,-1]), data_spider)
+#colnames(data_spider) <- c("income", names(data_spider)[-1])
+#radarchart(data_spider)
+
+```
+
+```{r echo=FALSE}
+mosaicplot(table(trainning_set$relationship, trainning_set$income), main="Mosaic Plot of Relationship Status vs. Income", shade=TRUE)
+
+```
+
+# Result
+
+## Modeling Approach
+### Choice of Model
+### First model : Logistic Regression
+
+In our initial approach to predicting income, we employed the Logistic Regression model. This statistical method is especially apt for binary outcomes, making it a fitting choice for our task of discerning between two income categories: those earning above $50K and those earning below. To implement this, the glm() function from R was utilized with a binomial family and a logit link function. After training the model on our training dataset, predictions were made on a separate validation set. The outcome of these predictions is dichotomized at the threshold of 0.5: values greater than this threshold are classified as incomes ">50K" while values below are designated as "<=50K". The confusionMatrix() function then offers a consolidated view of the model's performance, showing how often it correctly or incorrectly predicted each income category.
+
+```{r}
+#model 1 : logistic regression
+model_logistic <- glm(income ~ ., family=binomial(link='logit'), data=trainning_set)
+pred_logistic <- predict(model_logistic, newdata=validation_set, type="response")
+result_logistic <- ifelse(pred_logistic > 0.5, ">50K", "<=50K")
+confusionMatrix(factor(result_logistic), validation_set$income)
+```
+
+
+
+### Second Model : Random Forest
+
+For our next predictive strategy, we turned to the Random Forest algorithm. This method is essentially an ensemble of decision trees where each tree votes for a particular outcome, ensuring a more balanced and robust prediction. It's particularly effective for complex datasets with many features, as it can capture intricate patterns and interactions. With the randomForest() function in R, we constructed a forest consisting of 100 trees (ntree=100). After training on our dataset, predictions were generated for the validation set. The model's performance in terms of its accuracy in predicting the income categories is presented using the confusionMatrix(). The inherent strength of the Random Forest in handling overfitting and its capability to process a mix of categorical and numeric features made it a prime choice for our project.
+```{r}
+#model 2 : random forest
+set.seed(123)
+model_rf <- randomForest(income ~ ., data=trainning_set, ntree=100)
+pred_rf <- predict(model_rf, newdata=validation_set)
+confusionMatrix(pred_rf, validation_set$income)
+```
+
+### Third Model : XGBOOST
+
+Our third modeling approach utilized the powerful gradient boosting framework, XGBOOST. This technique builds trees one at a time, where each new tree helps to correct errors made by the previously trained tree. By converting our data into a DMatrix, a special data structure that XGBOOST uses to boost its performance and efficiency, we prepped our dataset for the algorithm. We configured the model to use a gbtree booster for tree-based models and set the objective to "binary:logistic" given our two-class prediction problem. With parameters like eta determining the learning rate and depth controlling the depth of the trees, the model was trained over 100 rounds. Post-training, predictions on the validation set were derived and evaluated with a confusionMatrix(). The choice of XGBOOST for this dataset is motivated by its reputation for high performance and capability to optimize large-scale and complex data structures, making it an excellent fit for our project's requirements.
+```{r}
+#model 3 : XGBOOST
+dtrain <- xgb.DMatrix(data = model.matrix(~.-1, data=trainning_set[,!names(trainning_set) %in% c('income')]), label = as.numeric(trainning_set$income == ">50K"))
+dtest <- xgb.DMatrix(data = model.matrix(~.-1, data=validation_set[,!names(validation_set) %in% c('income')]), label = as.numeric(validation_set$income == ">50K"))
+
+params <- list(booster = "gbtree", objective = "binary:logistic", eta=0.3, depth=6)
+set.seed(123)
+model_xgb <- xgb.train(params = params, data = dtrain, nrounds=100)
+pred_xgb <- predict(model_xgb, newdata=dtest)
+result_xgb <- ifelse(pred_xgb > 0.5, ">50K", "<=50K")
+confusionMatrix(factor(result_xgb), validation_set$income)
+```
+
+
+### Fourth Model : Support vector machine
+
+For the fourth modeling endeavor, we employed the Support Vector Machine (SVM), a renowned algorithm tailored for classification problems. The SVM algorithm works by finding a hyperplane that best divides the dataset into classes. In our case, we used the 'C-classification' type, which is standard for two-class classification problems, and opted for a 'radial' kernel, which is versatile in handling non-linear data. Once the model was trained on our training set, we used it to predict incomes on the validation set. These predictions were subsequently assessed using a confusionMatrix(). The choice of SVM for this task is underpinned by its ability to efficiently handle high-dimensional data and its proficiency in classifying non-linear data, which aligns well with the intricacies of our dataset.
+```{r}
+#Model 4 : Support vector machine
+model_svm <- svm(income ~ ., data=trainning_set, type='C-classification', kernel='radial')
+pred_svm <- predict(model_svm, newdata=validation_set)
+confusionMatrix(pred_svm, validation_set$income)
+```
+
+
+### Fifth Model : K-Nearest-Neighbors
+
+For our fifth and final model, we delved into the K-Nearest Neighbors (KNN) algorithm, an instance-based learning method rooted in simplicity and intuitiveness. KNN operates by classifying an observation based on the majority class of its 'k' nearest observations in the dataset. Here, we set k to 21, indicating that for each person in the validation set, the algorithm looks at the 21 nearest individuals in the training set to decide the income category. To accommodate the algorithm's demands, we first transformed our data into matrices, ensuring it could be efficiently processed. Post prediction, the model's outcomes were evaluated using the confusionMatrix(). The choice of KNN is justified by its non-parametric nature, which means it makes no assumptions about the underlying data distribution. This capability renders it particularly fitting for datasets where the relationship between variables may be more complex or non-linear.
+
+```{r}
+#Model 5 : K-Nearest Neighbors
+
+train_data_matrix <- as.matrix(model.matrix(income ~ ., trainning_set)[, -1])
+val_data_matrix <- as.matrix(model.matrix(income ~ ., validation_set)[, -1])
+pred_knn <- knn(train_data_matrix, val_data_matrix, cl = trainning_set$income, k = 21)
+confusionMatrix(pred_knn, validation_set$income)
+```
+### Final table result
+
+```{r}
+#TABLE OF EACH MODEL------------------------------------
+# Store the model predictions
+predictions <- list(
+  logistic = result_logistic,
+  rf = pred_rf,
+  xgboost = result_xgb,
+  svm = pred_svm,
+  knn = pred_knn
+)
+# Ensure the income variable in the validation set is a factor with specified levels
+validation_set$income <- factor(validation_set$income, levels = c("<=50K", ">50K"))
+
+# Convert the predictions to factors with the same levels as validation_set$income
+predictions$logistic <- factor(predictions$logistic, levels = c("<=50K", ">50K"))
+predictions$rf <- factor(predictions$rf, levels = c("<=50K", ">50K"))
+predictions$xgboost <- factor(predictions$xgboost, levels = c("<=50K", "> 50K"))
+predictions$svm <- factor(predictions$svm, levels = c("<=50K", ">50K"))
+predictions$knn <- factor(predictions$knn, levels = c("<=50K", ">50K"))
+
+# Initialize an empty dataframe to store results
+model_performance <- data.frame(
+  Model = character(),
+  Accuracy = numeric(),
+  F1_Score = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Compute accuracy and F1 scores based on the predictions
+for(model_name in names(predictions)) {
+  cm <- confusionMatrix(predictions[[model_name]], validation_set$income)
+  
+  accuracy <- sum(diag(cm$table)) / sum(cm$table)
+  
+  recall <- cm$byClass['Recall']
+  precision <- cm$byClass['Precision']
+  
+  f1 <- 2 * (precision * recall) / (precision + recall)
+  
+  model_performance <- rbind(model_performance, data.frame(Model = model_name, Accuracy = accuracy, F1_Score = f1))
+}
+
+
+```
+```{r}
+kable(model_performance,caption = "Table of all model result")
+```
+
+XGBoost has the highest accuracy of 0.8660699 and the highest F1 score of 0.9125730.
+
+Therefore, XGBoost appears to be the best model among the ones tested, based on both accuracy and F1 score !
+
+
+# Conclusion
+
+In conclusion, the models assessed, XGBoost emerged as the most promising, boasting an accuracy of 86.6%. Its gradient-boosted framework proved adept at managing our dataset's nuances, offering a harmonious balance between bias and variance. However, while this accuracy is commendable, it is crucial to remember that every model has its limitations. 
+
+Our analysis was bounded by the constraints of the dataset and the features at our disposal. Real-world scenarios might introduce variables and complexities not captured here. Additionally, an accuracy of 86.6% also indicates potential misclassifications, highlighting the continual need for model refinement and the incorporation of more comprehensive data to enhance predictive accuracy further. Future endeavors could delve into feature engineering, more advanced algorithms, or even ensemble methods to further bolster the predictive prowess.
+
+# References
+
+UCI Machine Learning (2023). Adult Census Income. Kaggle. Retrieved from https://www.kaggle.com/datasets/uciml/adult-census-income.
+
+
+
+
